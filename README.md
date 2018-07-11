@@ -1,1 +1,1 @@
-# mongo_with_replicaset
+config
