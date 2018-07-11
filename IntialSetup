@@ -1,0 +1,95 @@
+# mongo_with_replicaset
+
+For production enviroment its essential to setup realtime replication 
+
+with help of replication we also distribute load on mongo server 
+while putting read requet on replication server and write request on 
+primary server
+
+For minimum replication setup it requierd three node 
+1. node1 ( Primary )
+2. node2 (Secondary)
+3. node3 ( Arbiter )
+node1 and node2 store data and node3 is does't hold data,but help in voting 
+when primary node is down 
+
+Step 1: Download the binary files for the desired release of MongoDB
+$ curl -O https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.0.tgz
+
+Step 2: Extract the files from the downloaded archive
+$ tar -zxvf mongodb-linux-x86_64-3.6.0.tgz
+
+Step 3: Copy the extracted archive to the target directory.
+$ sudo mkdir -p /usr/local/mongodb
+$ sudo cp -R -n mongodb-linux-x86_64-3.6.0/* /usr/local/mongodb
+
+Step 4: Ensure the location of the binaries is in the PATH variable.
+$ echo "export PATH=/usr/local/mongodb/bin:$PATH" >> ~/.bashrc
+$ source ~/.bashrc
+
+from here we assume if we have to run more then one mongo on different port and differet data directory 
+For that i use mongo1..n so if its required to make many instance and service of mongo then we can make
+
+Step 5: Create the data directory give current user permission
+we can also create mongodb user of and provide permission to that user 
+For non login/shell user creation 
+$ sudo useradd -M -N -r -s /bin/false  mongodb
+$ sudo mkdir -p /data/mongodb1
+$ sudo chown -R $USER:$USER /data
+
+Step 5: Run MongoDB
+$ mongod
+so defalut it run on port 27017 and data director /data/db but we want change it to /data/mongodb1 etc
+
+Step 6 : create Mongo service 
+
+            $ echo '#!/bin/sh
+            PATH_TO_MONGO=/usr/local/mongodb/bin/mongod
+            PATH_TO_CONFIG=/etc/mongodb1.conf
+            #file containing all mongodb pid
+            PID_FILE=/tmp/mongodb1.pid
+            case "$1" in
+            start)
+            echo "Starting mongodb service..."
+            COMMAND_TO_RUN=`start-stop-daemon -S -b -m -p $PID_FILE -x $PATH_TO_MONGO --config $PATH_TOCONFIG & :`
+            setsid sh -c $COMMAND_TO_RUN> /dev/null 2>&1 < /dev/null
+            echo -e "\E[31;33m[ OK ]\E[0m"
+            ;;
+            stop)
+            echo "Stopping mongodb service..."
+            start-stop-daemon -K -q -p $PID_FILE
+            echo -e "\E[31;33m[ OK ]\E[0m"
+            ;;
+            restart|reload)
+            "$0" stop
+            "$0" start
+            ;;
+            *)
+            echo $"Usage: $0 {start|stop|restart}"
+            exit 1
+            esac
+            exit $?' > mongodb1
+
+Step 7: Create mongo config file for service 
+
+            $ echo 'bind_ip = 0.0.0.0
+            db_path = /data/mongodb1
+            fork = true
+            storageEngine = wiredTiger
+            logappend = true
+            logpath = /var/log/mongodb/mongodb1.log
+            nojournal = false
+            replSet = rs-mongo
+            rest = false
+            smallfiles = false' > ~/mongodb1.conf
+
+Step 8: Move file to there appropriate localtion 
+$ sudo chmod +x ~/mongodb1
+$ sudo cp ~/mongodb1 /etc/init.d/
+$ sudo cp ~/mongodb1.conf /etc/
+$ update-rc.d mongodb1 defaults
+
+Step 9: Start mongo as service 
+
+
+
